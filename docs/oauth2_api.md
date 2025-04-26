@@ -3,6 +3,45 @@
 ## Base URL
 All endpoints are relative to the base URL: `http://localhost:8000/oauth2`
 
+## Available Scopes
+
+The OAuth2 provider supports the following scopes:
+
+1. `openid` (Required for OpenID Connect)
+   - Required for OpenID Connect flows
+   - Provides the `sub` (subject identifier) claim
+
+2. `profile`
+   - Provides access to basic profile information
+   - Includes the following claims:
+     - `username`
+     - `name` (if available)
+
+3. `email`
+   - Provides access to the user's email address
+   - Includes the following claims:
+     - `email`
+     - `email_verified` (if available)
+
+### Scope Usage Examples
+
+1. Requesting multiple scopes:
+```http
+GET /authorize?scope=openid profile email
+```
+
+2. Requesting minimal scope:
+```http
+GET /authorize?scope=openid
+```
+
+3. Requesting specific scopes:
+```http
+GET /authorize?scope=openid email
+```
+
+Note: The `openid` scope is required for OpenID Connect flows. Other scopes are optional and can be combined as needed.
+
 ## 1. Authorization Code Flow (for Web Applications)
 
 This flow is recommended for web applications that can securely store client secrets.

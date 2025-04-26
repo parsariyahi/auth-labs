@@ -7,6 +7,61 @@ This is a complete OAuth2 provider implementation supporting all major OAuth2 fl
 - Device Flow (for smart devices/TVs)
 - Refresh Token Flow
 
+## Available Scopes
+
+The OAuth2 provider implements OpenID Connect and supports the following scopes:
+
+### Standard Scopes
+
+1. `openid` (Required)
+   - Required for OpenID Connect flows
+   - Provides the `sub` (subject identifier) claim
+   - Must be included in all OpenID Connect requests
+
+2. `profile`
+   - Provides access to basic profile information
+   - Available claims:
+     - `username`
+     - `name` (if available)
+
+3. `email`
+   - Provides access to the user's email address
+   - Available claims:
+     - `email`
+     - `email_verified` (if available)
+
+### Scope Usage
+
+Scopes can be requested in the following ways:
+
+1. **Authorization Code Flow**:
+```http
+GET /authorize?scope=openid profile email
+```
+
+2. **Device Flow**:
+```http
+POST /device_authorize?scope=openid profile email
+```
+
+3. **Client Credentials Flow**:
+- Typically doesn't use scopes as it's for machine-to-machine communication
+
+### User Info Claims
+
+The `/userinfo` endpoint returns different claims based on the granted scopes:
+
+- With `openid` scope:
+  - `sub` (always included)
+
+- With `profile` scope:
+  - `username`
+  - `name` (if available)
+
+- With `email` scope:
+  - `email`
+  - `email_verified` (if available)
+
 ## Project Structure
 ```
 oauth2/
