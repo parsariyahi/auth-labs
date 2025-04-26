@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  oauth2:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./oauth_provider.db:/app/oauth_provider.db
+    environment:
+      - SECRET_KEY=your-very-secure-secret-key-change-me
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - DB_FILE=oauth_provider.db
+    restart: unless-stopped 
