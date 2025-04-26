@@ -1,17 +1,26 @@
 import sqlite3
 from datetime import datetime, timedelta
 from ..config import DB_FILE
+import threading
+from fastapi import Depends
+from contextlib import contextmanager
+
+# Thread-local storage for database connections
+local_storage = threading.local()
 
 def get_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+    if not hasattr(local_storage, 'connection'):
+        local_storage.connection = sqlite3.connect(DB_FILE, check_same_thread=False)
+        local_storage.connection.row_factory = sqlite3.Row
+    return local_storage.connection
+
+def close_db():
+    if hasattr(local_storage, 'connection'):
+        local_storage.connection.close()
+        del local_storage.connection
 
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     cursor = conn.cursor()
     
     from .models import get_table_definitions
@@ -146,4 +155,16 @@ def approve_device_code(user_code, user_id, db):
         "UPDATE device_codes SET is_approved = TRUE, user_id = ? WHERE user_code = ?",
         (user_id, user_code)
     )
-    db.commit() 
+    db.commit()
+
+@contextmanager
+def get_db_context():
+    db = get_db()
+    try:
+        yield db
+    finally:
+        pass  # Don't close the connection here, it's managed by the thread-local storage
+
+def get_db_dependency():
+    with get_db_context() as db:
+        yield db 
