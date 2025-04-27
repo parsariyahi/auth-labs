@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - OAuth2 Client{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="mb-4">Welcome to OAuth2 Client</h1>
+        {% if user.is_authenticated %}
+            <p class="lead">You are logged in as {{ user.username }}</p>
+            <a href="{% url 'profile' %}" class="btn btn-primary">View Profile</a>
+        {% else %}
+            <p class="lead">Please log in to access your profile</p>
+            <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

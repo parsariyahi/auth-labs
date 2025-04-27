@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 from service.config import DB_FILE
+from service.utils.security import verify_password
 
 local_storage = threading.local()
 
@@ -49,6 +50,17 @@ def get_user(username, db):
     cursor = db.cursor()
     cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
     return cursor.fetchone()
+
+def get_user_by_id(id, db):
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (id,))
+    return cursor.fetchone()
+
+def authenticate_user(username: str, password: str, db):
+    user = get_user(username, db)
+    if user and verify_password(password, user["hashed_password"]):
+        return user
+    return None
 
 def create_authorization_code(client_id, redirect_uri, user_id, scope, code_challenge, code_challenge_method, db):
     from ..utils.security import generate_token

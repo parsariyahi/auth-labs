@@ -20,12 +20,15 @@ USER appuser
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV DEBUG=True
+ENV OAUTH2_PROVIDER_URL=http://oauth2-provider:8000/oauth2
+ENV OAUTH2_CLIENT_ID=your_client_id
+ENV OAUTH2_CLIENT_SECRET=your_client_secret
+ENV OAUTH2_REDIRECT_URI=http://localhost:8080/oauth2/callback
+ENV DEBUG=False
 ENV SECRET_KEY=your_django_secret_key
-ENV DATABASE_URL=sqlite:///db.sqlite3
 
-# Expose port 8000
-EXPOSE 8000
+# Expose port 8080
+EXPOSE 8080
 
 # Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"] 
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8080"] 

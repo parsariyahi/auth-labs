@@ -11,7 +11,7 @@ if python -c "
 from service.database.create_db import init_db
 init_db()
 "; then
-    echo "Database initialized successfully!"
+echo "Database initialized successfully!" 
 else
     echo "Failed to initialize database"
     exit 1
