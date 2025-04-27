@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  oauth2:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=sqlite:///service/oauth_provider.db
+    command: sh -c "./service/init_db.sh && uvicorn service.main:app --host 0.0.0.0 --port 8000 --reload"

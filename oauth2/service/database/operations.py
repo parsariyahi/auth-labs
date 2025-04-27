@@ -1,12 +1,17 @@
+import os
 import sqlite3
-from datetime import datetime, timedelta
-from ..config import DB_FILE
 import threading
-from fastapi import Depends
+from datetime import datetime, timedelta
 from contextlib import contextmanager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
-# Thread-local storage for database connections
+from service.config import DB_FILE
+
 local_storage = threading.local()
+
+Base = declarative_base()
 
 def get_db():
     if not hasattr(local_storage, 'connection'):
@@ -19,46 +24,12 @@ def close_db():
         local_storage.connection.close()
         del local_storage.connection
 
-def init_db():
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    cursor = conn.cursor()
+def init_db(db_path="service/oauth_provider.db"):
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     
-    from .models import get_table_definitions
-    tables = get_table_definitions()
-    
-    for table_name, create_sql in tables.items():
-        cursor.execute(create_sql)
-    
-    # Add initial test data
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0:
-        from ..utils.security import get_password_hash
-        hashed_password = get_password_hash("password123")
-        cursor.execute(
-            "INSERT INTO users (username, hashed_password, email) VALUES (?, ?, ?)",
-            ("testuser", hashed_password, "test@example.com")
-        )
-    
-    cursor.execute("SELECT COUNT(*) FROM clients")
-    if cursor.fetchone()[0] == 0:
-        # SPA client
-        cursor.execute(
-            "INSERT INTO clients (client_id, client_secret, redirect_uris, name, client_type) VALUES (?, ?, ?, ?, ?)",
-            ("spa_client", "", "http://localhost:8002/callback", "SPA Client", "public")
-        )
-        # M2M client
-        cursor.execute(
-            "INSERT INTO clients (client_id, client_secret, name, client_type) VALUES (?, ?, ?, ?)",
-            ("m2m_client", "m2m_secret_123", "M2M Client", "confidential")
-        )
-        # Device client
-        cursor.execute(
-            "INSERT INTO clients (client_id, client_secret, name, client_type) VALUES (?, ?, ?, ?)",
-            ("device_client", "", "Device Client", "public")
-        )
-    
-    conn.commit()
-    conn.close()
+    engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine)()
 
 def validate_redirect_uri(client_id, redirect_uri, db):
     cursor = db.cursor()

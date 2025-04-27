@@ -1,27 +1,32 @@
+import sqlite3
+import traceback
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from datetime import datetime, timedelta
-from ..database.operations import (
+
+from service.database.operations import (
     get_db, get_client, get_user, create_device_code,
     get_device_code, get_device_code_by_user_code,
     approve_device_code, create_token
 )
-from ..utils.security import generate_token
-from ..models.schemas import DeviceAuthorizationResponse, TokenResponse
-from ..config import DEVICE_FLOW
-import sqlite3
-import traceback
+from service.utils.security import generate_token
+from service.models.schemas import DeviceAuthorizationResponse, TokenResponse
+from service.config import DEVICE_FLOW
 
-router = APIRouter()
 
-@router.post("/device_authorize", response_model=DeviceAuthorizationResponse)
+router = APIRouter(
+    prefix="/device",
+    tags=["Device"],
+)
+
+
+@router.post("/authorize", response_model=DeviceAuthorizationResponse)
 async def device_authorize(
     client_id: str,
     scope: str = None,
     db = Depends(get_db)
 ):
     try:
-        # Validate client
         client = get_client(client_id, db)
         if not client:
             error_summary = {
@@ -34,12 +39,10 @@ async def device_authorize(
                 detail=error_summary
             )
         
-        # Generate codes
         device_code = generate_token()
         user_code = generate_token(6)  # Shorter code for user input
         
-        # Create device code
-        expires_at = datetime.utcnow() + timedelta(minutes=30)
+        expires_at = datetime.now() + timedelta(minutes=30)
         create_device_code(
             device_code=device_code,
             user_code=user_code,
@@ -59,6 +62,7 @@ async def device_authorize(
             expires_in=1800,
             interval=DEVICE_FLOW["interval"]
         )
+
     except sqlite3.Error as e:
         error_summary = {
             "error_type": "DatabaseError",
@@ -66,22 +70,25 @@ async def device_authorize(
             "error_code": e.sqlite_errorcode if hasattr(e, 'sqlite_errorcode') else None,
             "error_name": e.sqlite_errorname if hasattr(e, 'sqlite_errorname') else None
         }
+
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary)
+
     except Exception as e:
         error_summary = {
             "error_type": type(e).__name__,
             "error_message": str(e),
             "traceback": traceback.format_exc()
         }
+
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary)
 
-@router.get("/device", response_class=HTMLResponse)
+
+@router.get("/verify", response_class=HTMLResponse)
 async def device_verification(
     request: Request,
     user_code: str = Query(None),
     db = Depends(get_db)
 ):
-    # If no user_code provided, show the input form
     if not user_code:
         return """
         <html>
@@ -96,7 +103,6 @@ async def device_verification(
         </html>
         """
     
-    # Get device code
     device_code = get_device_code_by_user_code(user_code, db)
     if not device_code:
         return """
@@ -109,8 +115,7 @@ async def device_verification(
         </html>
         """
     
-    # Check expiration
-    if datetime.utcnow() > datetime.fromisoformat(device_code["expires_at"]):
+    if datetime.now() > datetime.fromisoformat(device_code["expires_at"]):
         return """
         <html>
             <body>
@@ -120,7 +125,6 @@ async def device_verification(
         </html>
         """
     
-    # Check if already approved
     if device_code["is_approved"]:
         return """
         <html>
@@ -131,7 +135,6 @@ async def device_verification(
         </html>
         """
     
-    # Show approval form
     return f"""
     <html>
         <body>
@@ -145,13 +148,13 @@ async def device_verification(
     </html>
     """
 
-@router.post("/device/approve")
+
+@router.post("/approve")
 async def approve_device(
     user_code: str,
     db = Depends(get_db)
 ):
     try:
-        # Get device code
         device_code = get_device_code_by_user_code(user_code, db)
         if not device_code:
             error_summary = {
@@ -164,8 +167,7 @@ async def approve_device(
                 detail=error_summary
             )
         
-        # Check expiration
-        if datetime.utcnow() > datetime.fromisoformat(device_code["expires_at"]):
+        if datetime.now() > datetime.fromisoformat(device_code["expires_at"]):
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Code expired",
@@ -176,7 +178,6 @@ async def approve_device(
                 detail=error_summary
             )
         
-        # Get test user (in real app, this would be the authenticated user)
         user = get_user("testuser", db)
         if not user:
             error_summary = {
@@ -189,7 +190,6 @@ async def approve_device(
                 detail=error_summary
             )
         
-        # Approve device code
         approve_device_code(user_code, user["id"], db)
         
         return {"status": "approved"}
@@ -208,6 +208,7 @@ async def approve_device(
             "traceback": traceback.format_exc()
         }
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary)
+
 
 @router.post("/token", response_model=TokenResponse)
 async def device_token(
@@ -228,7 +229,6 @@ async def device_token(
                 detail=error_summary
             )
         
-        # Get device code
         device = get_device_code(device_code, db)
         if not device:
             error_summary = {
@@ -241,8 +241,7 @@ async def device_token(
                 detail=error_summary
             )
         
-        # Check expiration
-        if datetime.utcnow() > datetime.fromisoformat(device["expires_at"]):
+        if datetime.now() > datetime.fromisoformat(device["expires_at"]):
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Code expired",
@@ -253,7 +252,6 @@ async def device_token(
                 detail=error_summary
             )
         
-        # Check if approved
         if not device["is_approved"]:
             error_summary = {
                 "error_type": "ValidationError",
@@ -265,15 +263,13 @@ async def device_token(
                 detail=error_summary
             )
         
-        # Create tokens
-        from ..utils.security import create_access_token
+        from service.utils.security import create_access_token
         access_token = create_access_token(
             data={"sub": str(device["user_id"])},
             expires_delta=timedelta(minutes=30)
         )
         refresh_token = generate_token()
         
-        # Store tokens
         create_token(
             access_token=access_token,
             refresh_token=refresh_token,

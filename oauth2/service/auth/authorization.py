@@ -1,17 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import RedirectResponse
-from datetime import datetime, timedelta
-from ..database.operations import (
-    get_db, validate_redirect_uri, get_client, get_user,
-    create_authorization_code, get_authorization_code, delete_authorization_code
-)
-from ..utils.security import verify_code_challenge
-from ..models.schemas import TokenResponse
 import sqlite3
 import traceback
 from urllib.parse import urlencode
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import RedirectResponse
+from datetime import datetime
 
-router = APIRouter()
+from service.database.operations import (
+    get_db, validate_redirect_uri, get_client, get_user,
+    create_authorization_code, get_authorization_code, delete_authorization_code
+)
+from service.utils.security import verify_code_challenge
+from service.models.schemas import TokenResponse
+
+
+router = APIRouter(
+    prefix="/oauth2",
+    tags=["OAuth2"],
+)
+
 
 @router.get("/authorize")
 async def authorize(
@@ -25,7 +31,6 @@ async def authorize(
     db = Depends(get_db)
 ):
     try:
-        # Validate response type
         if response_type != "code":
             error_summary = {
                 "error_type": "ValidationError",
@@ -37,7 +42,6 @@ async def authorize(
                 detail=error_summary
             )
         
-        # Validate client
         client = get_client(client_id, db)
         if not client:
             error_summary = {
@@ -50,7 +54,6 @@ async def authorize(
                 detail=error_summary
             )
         
-        # Validate redirect URI
         if not validate_redirect_uri(client_id, redirect_uri, db):
             error_summary = {
                 "error_type": "ValidationError",
@@ -62,7 +65,6 @@ async def authorize(
                 detail=error_summary
             )
         
-        # Get test user (in real app, this would be the authenticated user)
         user = get_user("testuser", db)
         if not user:
             error_summary = {
@@ -75,7 +77,6 @@ async def authorize(
                 detail=error_summary
             )
         
-        # Create authorization code
         code = create_authorization_code(
             client_id=client_id,
             redirect_uri=redirect_uri,
@@ -86,14 +87,13 @@ async def authorize(
             db=db
         )
         
-        # Build redirect URL
         params = {"code": code}
         if state:
             params["state"] = state
         
         redirect_url = f"{redirect_uri}?{urlencode(params)}"
-        print(redirect_url)
         return RedirectResponse(url=redirect_url)
+
     except sqlite3.Error as e:
         error_summary = {
             "error_type": "DatabaseError",
@@ -102,6 +102,7 @@ async def authorize(
             "error_name": e.sqlite_errorname if hasattr(e, 'sqlite_errorname') else None
         }
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary)
+
     except Exception as e:
         error_summary = {
             "error_type": type(e).__name__,
@@ -109,6 +110,7 @@ async def authorize(
             "traceback": traceback.format_exc()
         }
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary)
+
 
 @router.post("/token", response_model=TokenResponse)
 async def token(
@@ -132,7 +134,6 @@ async def token(
                 detail=error_summary
             )
         
-        # Get authorization code
         auth_code = get_authorization_code(code, db)
         if not auth_code:
             error_summary = {
@@ -145,8 +146,7 @@ async def token(
                 detail=error_summary
             )
         
-        # Check expiration
-        if datetime.utcnow() > datetime.fromisoformat(auth_code["expires_at"]):
+        if datetime.now() > datetime.fromisoformat(auth_code["expires_at"]):
             delete_authorization_code(code, db)
             error_summary = {
                 "error_type": "ValidationError",
@@ -158,7 +158,6 @@ async def token(
                 detail=error_summary
             )
         
-        # Validate client
         client = get_client(client_id, db)
         if not client or client["client_id"] != auth_code["client_id"]:
             error_summary = {
@@ -171,7 +170,6 @@ async def token(
                 detail=error_summary
             )
         
-        # Validate redirect URI
         if redirect_uri != auth_code["redirect_uri"]:
             error_summary = {
                 "error_type": "ValidationError",
@@ -183,7 +181,6 @@ async def token(
                 detail=error_summary
             )
         
-        # Validate PKCE
         if auth_code["code_challenge"]:
             if not code_verifier:
                 error_summary = {
@@ -206,8 +203,7 @@ async def token(
                     detail=error_summary
                 )
         
-        # Create tokens
-        from ..utils.security import create_access_token, generate_token
+        from service.utils.security import create_access_token, generate_token
         from datetime import timedelta
         
         access_token = create_access_token(
@@ -216,8 +212,7 @@ async def token(
         )
         refresh_token = generate_token()
         
-        # Store tokens
-        from ..database.operations import create_token
+        from service.database.operations import create_token
         create_token(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -229,7 +224,6 @@ async def token(
             db=db
         )
         
-        # Delete authorization code
         delete_authorization_code(code, db)
         
         return TokenResponse(
@@ -239,6 +233,7 @@ async def token(
             refresh_token=refresh_token,
             scope=auth_code["scope"]
         )
+
     except sqlite3.Error as e:
         error_summary = {
             "error_type": "DatabaseError",
@@ -246,11 +241,14 @@ async def token(
             "error_code": e.sqlite_errorcode if hasattr(e, 'sqlite_errorcode') else None,
             "error_name": e.sqlite_errorname if hasattr(e, 'sqlite_errorname') else None
         }
+
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary)
+
     except Exception as e:
         error_summary = {
             "error_type": type(e).__name__,
             "error_message": str(e),
             "traceback": traceback.format_exc()
         }
+
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_summary) 

@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from ..database.operations import get_db
-from ..models.schemas import ClientCreate, ClientResponse
-from ..utils.security import generate_token
 import sqlite3
 import traceback
+from fastapi import APIRouter, Depends, HTTPException, status
 
-router = APIRouter(prefix="/oauth2", tags=["client"])
+from service.database.operations import get_db
+from service.models.schemas import ClientCreate, ClientResponse
+from service.utils.security import generate_token
 
-@router.post("/register_client", response_model=ClientResponse)
+
+router = APIRouter(prefix="/client", tags=["client"])
+
+
+@router.post("/oauth/register", response_model=ClientResponse)
 async def register_client(client: ClientCreate, db = Depends(get_db)):
     try:
         client_id = generate_token()

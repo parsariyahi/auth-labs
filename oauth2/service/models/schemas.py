@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 
+
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -29,6 +30,10 @@ class ClientResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class Token(BaseModel):
+    # Depricate!!!!!
+    pass
 
 class TokenResponse(BaseModel):
     access_token: str

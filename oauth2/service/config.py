@@ -10,7 +10,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 # Database
-DB_FILE = os.getenv("DB_FILE", "oauth_provider.db")
+DB_FILE = os.getenv("DB_FILE", "service/oauth_provider.db")
 
 # Token Settings
 TOKEN_EXPIRATION = {
