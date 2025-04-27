@@ -50,7 +50,7 @@ This flow is recommended for web applications that can securely store client sec
 First, register your client application:
 
 ```http
-POST /register_client
+POST /client/oauth/register
 Content-Type: application/json
 
 {
@@ -114,7 +114,7 @@ This flow is for server-to-server communication where no user is involved.
 Register your client with confidential type:
 
 ```http
-POST /register_client
+POST /client/oauth/register
 Content-Type: application/json
 
 {
@@ -216,12 +216,33 @@ Response:
 }
 ```
 
-## 5. User Info Endpoint
+## 5. User Management
 
-Get information about the authenticated user:
-
+### Register a New User
 ```http
-GET /userinfo
+POST /users/register
+Content-Type: application/json
+
+{
+    "username": "newuser",
+    "password": "securepassword",
+    "email": "user@example.com"
+}
+```
+
+Response:
+```json
+{
+    "id": 1,
+    "username": "newuser",
+    "email": "user@example.com",
+    "is_active": true
+}
+```
+
+### Get User Information
+```http
+GET /users/info
 Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
@@ -231,6 +252,56 @@ Response:
     "sub": "user_id",
     "username": "username",
     "email": "email@example.com"
+}
+```
+
+### List All Users (Admin Only)
+```http
+GET /users
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+Response:
+```json
+[
+    {
+        "id": 1,
+        "username": "user1",
+        "email": "user1@example.com",
+        "is_active": true
+    },
+    {
+        "id": 2,
+        "username": "user2",
+        "email": "user2@example.com",
+        "is_active": true
+    }
+]
+```
+
+## 6. OpenID Connect Configuration
+
+Get the OpenID Connect configuration:
+
+```http
+GET /.well-known/openid-configuration
+```
+
+Response:
+```json
+{
+    "issuer": "http://localhost:8000",
+    "authorization_endpoint": "http://localhost:8000/oauth2/authorize",
+    "token_endpoint": "http://localhost:8000/oauth2/token",
+    "userinfo_endpoint": "http://localhost:8000/oauth2/userinfo",
+    "device_authorization_endpoint": "http://localhost:8000/oauth2/device_authorize",
+    "jwks_uri": "http://localhost:8000/.well-known/jwks.json",
+    "response_types_supported": ["code"],
+    "subject_types_supported": ["public"],
+    "id_token_signing_alg_values_supported": ["HS256"],
+    "scopes_supported": ["openid", "profile", "email"],
+    "token_endpoint_auth_methods_supported": ["client_secret_basic", "none"],
+    "claims_supported": ["sub", "username", "email"]
 }
 ```
 
@@ -248,12 +319,11 @@ Response:
 
 3. **Error Handling**:
    - All endpoints return appropriate HTTP status codes
-   - Error responses include a `detail` field with the error message
-
-4. **Configuration**:
-   - Token expiration times can be configured in `config.py`
-   - Base URLs can be configured in the OpenID configuration
-
-5. **OpenID Configuration**:
-   - Available at `/.well-known/openid-configuration`
-   - Lists all supported endpoints and features 
+   - Error responses include detailed error information:
+     ```json
+     {
+         "error_type": "ErrorType",
+         "error_message": "Detailed error message",
+         "error_code": "ErrorCode"  // If applicable
+     }
+     ``` 
