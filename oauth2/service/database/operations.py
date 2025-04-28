@@ -63,9 +63,9 @@ def authenticate_user(username: str, password: str, db):
     return None
 
 def create_authorization_code(client_id, redirect_uri, user_id, scope, code_challenge, code_challenge_method, db):
-    from ..utils.security import generate_token
+    from service.utils.security import generate_token
     code = generate_token()
-    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    expires_at = datetime.now() + timedelta(minutes=10)
     
     cursor = db.cursor()
     cursor.execute(

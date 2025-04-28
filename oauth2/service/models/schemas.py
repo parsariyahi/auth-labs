@@ -35,6 +35,14 @@ class Token(BaseModel):
     # Depricate!!!!!
     pass
 
+class TokenRequest(BaseModel):
+    grant_type: str
+    code: str = None
+    redirect_uri: str = None
+    client_id: str = None
+    client_secret: str = None
+    code_verifier: str = None
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str

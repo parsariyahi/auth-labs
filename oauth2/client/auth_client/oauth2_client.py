@@ -1,3 +1,4 @@
+from urllib.parse import quote
 import requests
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -14,7 +15,7 @@ class OAuth2Client:
         params = {
             'response_type': 'code',
             'client_id': self.client_id,
-            'redirect_uri': self.redirect_uri,
+            'redirect_uri': quote(self.redirect_uri, safe=""),
             'scope': 'openid profile email',
         }
         if state:
@@ -27,14 +28,14 @@ class OAuth2Client:
         data = {
             'grant_type': 'authorization_code',
             'code': code,
-            'redirect_uri': self.redirect_uri,
+            'redirect_uri': str(quote(self.redirect_uri, safe="")),
             'client_id': self.client_id,
             'client_secret': self.client_secret,
         }
-
+        print(f"\n\n here is data {data} \n\n")
         response = requests.post(
             f"{self.provider_url}/token",
-            data=data
+            json=data
         )
 
         if response.status_code != 200:

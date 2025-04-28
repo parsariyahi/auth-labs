@@ -131,9 +131,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # OAuth2 Configuration
 OAUTH2_PROVIDER_URL = os.getenv('OAUTH2_PROVIDER_URL', 'http://localhost:8000/oauth2')
-OAUTH2_CLIENT_ID = os.getenv('OAUTH2_CLIENT_ID', "29nzKa2MGNeGx0fGV6Ei08AGVsawpYHh1WtRojH3TPk")
+OAUTH2_CLIENT_ID = os.getenv('OAUTH2_CLIENT_ID', "S-2RfjL9HYFp5qpFqpLqCU4ddMSDX9ipzHbiD-CKvoE")
 OAUTH2_CLIENT_SECRET = os.getenv('OAUTH2_CLIENT_SECRET', "testsecret")
-OAUTH2_REDIRECT_URI = os.getenv('OAUTH2_REDIRECT_URI', 'http://localhost:8080/oauth2/callback')
+OAUTH2_REDIRECT_URI = os.getenv('OAUTH2_REDIRECT_URI', 'http://127.0.0.1:8001/oauth2/callback')
 
 # Login URL
 LOGIN_URL = '/login/'

@@ -35,13 +35,14 @@ def oauth_callback(request):
     if not code:
         messages.error(request, 'Authorization code not provided')
         return redirect('login')
-    
+    print("\n\n here is call back after if's \n\n")
     try:
         # Exchange code for tokens
         token_response = oauth_client.get_token(code)
-        
+        print(f"\n\n here is token response: {token_response} \n\n")
         # Get user info
         user_info = oauth_client.get_user_info(token_response['access_token'])
+        print(f"\n\n here is user info: {user_info} \n\n")
         
         # Store tokens in session
         request.session['access_token'] = token_response['access_token']
@@ -64,6 +65,7 @@ def oauth_callback(request):
         
     except Exception as e:
         messages.error(request, f'Authentication failed: {str(e)}')
+        print(f"\n\n here is exception: {e} \n\n")
         return redirect('login')
 
 def logout_view(request):

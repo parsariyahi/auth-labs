@@ -1,6 +1,6 @@
 import sqlite3
 import traceback
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode, quote, unquote
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from datetime import datetime
@@ -10,7 +10,7 @@ from service.database.operations import (
     create_authorization_code, get_authorization_code, delete_authorization_code
 )
 from service.utils.security import verify_code_challenge
-from service.models.schemas import TokenResponse
+from service.models.schemas import TokenRequest, TokenResponse
 
 
 router = APIRouter(
@@ -126,94 +126,91 @@ async def authorize(
 
 @router.post("/token", response_model=TokenResponse)
 async def token(
-    grant_type: str,
-    code: str = None,
-    redirect_uri: str = None,
-    client_id: str = None,
-    client_secret: str = None,
-    code_verifier: str = None,
+    data: TokenRequest,
     db = Depends(get_db)
 ):
     try:
-        if grant_type != "authorization_code":
+        if data.grant_type != "authorization_code":
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Unsupported grant_type",
-                "details": f"grant_type must be 'authorization_code', got '{grant_type}'"
+                "details": f"grant_type must be 'authorization_code', got '{data.grant_type}'"
             }
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_summary
             )
         
-        auth_code = get_authorization_code(code, db)
+        auth_code = get_authorization_code(data.code, db)
         if not auth_code:
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Invalid authorization code",
-                "details": f"Code '{code}' not found"
+                "details": f"Code '{data.code}' not found"
             }
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_summary
             )
-        
+
+        print("\n\n date times: \n", datetime.now(), "-------", datetime.fromisoformat(auth_code["expires_at"]))
+        print("\n\n datetime condition \n", datetime.now() > datetime.fromisoformat(auth_code["expires_at"]))
         if datetime.now() > datetime.fromisoformat(auth_code["expires_at"]):
-            delete_authorization_code(code, db)
+            delete_authorization_code(data.code, db)
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Authorization code expired",
-                "details": f"Code '{code}' expired at {auth_code['expires_at']}"
+                "details": f"Code '{data.code}' expired at {auth_code['expires_at']}"
             }
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_summary
             )
         
-        client = get_client(client_id, db)
+        client = get_client(data.client_id, db)
         if not client or client["client_id"] != auth_code["client_id"]:
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Invalid client_id",
-                "details": f"Client '{client_id}' not found or doesn't match authorization code"
+                "details": f"Client '{data.client_id}' not found or doesn't match authorization code"
             }
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_summary
             )
-        
-        if redirect_uri != auth_code["redirect_uri"]:
+
+        if data.redirect_uri != auth_code["redirect_uri"]:
             error_summary = {
                 "error_type": "ValidationError",
                 "error_message": "Invalid redirect_uri",
-                "details": f"Redirect URI '{redirect_uri}' doesn't match authorization code"
+                "details": f"Redirect URI '{data.redirect_uri}' doesn't match authorization code"
             }
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_summary
             )
         
-        if auth_code["code_challenge"]:
-            if not code_verifier:
-                error_summary = {
-                    "error_type": "ValidationError",
-                    "error_message": "code_verifier required",
-                    "details": "PKCE code_verifier is required for this authorization code"
-                }
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=error_summary
-                )
-            if not verify_code_challenge(code_verifier, auth_code["code_challenge"]):
-                error_summary = {
-                    "error_type": "ValidationError",
-                    "error_message": "Invalid code_verifier",
-                    "details": "PKCE code_verifier doesn't match code_challenge"
-                }
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=error_summary
-                )
+        # if auth_code["code_challenge"]:
+        #     if not data.code_verifier:
+        #         error_summary = {
+        #             "error_type": "ValidationError",
+        #             "error_message": "code_verifier required",
+        #             "details": "PKCE code_verifier is required for this authorization code"
+        #         }
+        #         raise HTTPException(
+        #             status_code=status.HTTP_400_BAD_REQUEST,
+        #             detail=error_summary
+        #         )
+        #     if not verify_code_challenge(data.code_verifier, auth_code["code_challenge"]):
+        #         error_summary = {
+        #             "error_type": "ValidationError",
+        #             "error_message": "Invalid code_verifier",
+        #             "details": "PKCE code_verifier doesn't match code_challenge"
+        #         }
+        #         raise HTTPException(
+        #             status_code=status.HTTP_400_BAD_REQUEST,
+        #             detail=error_summary
+        #         )
         
         from service.utils.security import create_access_token, generate_token
         from datetime import timedelta
@@ -231,13 +228,13 @@ async def token(
             token_type="Bearer",
             expires_at=datetime.now() + timedelta(minutes=30),
             scope=auth_code["scope"],
-            client_id=client_id,
+            client_id=data.client_id,
             user_id=auth_code["user_id"],
             db=db
         )
         
-        delete_authorization_code(code, db)
-        
+        delete_authorization_code(data.code, db)
+        print("\n\n here is creating the token \n\n") 
         return TokenResponse(
             access_token=access_token,
             token_type="Bearer",
